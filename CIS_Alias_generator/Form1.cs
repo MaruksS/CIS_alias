@@ -10,33 +10,59 @@ namespace CIS_Alias_generator
             InitializeComponent();
         }
 
-        //Generate button
+        //on Generate button click
         private void btn_generate_Click(object sender, EventArgs e)
         {
+            //get input
             string input = txt_input.Text;
+
+            //split input into string values array
             string[] separated = input.Split(null);
+
+            //create empty string array with length of separated array without company type abbreviation
             string[] nameSeparated = new string[separated.Length - 1];
 
+            //create a value to hold company name
             string companyName;
+
+            //create a value to hold output value
             string output = "";
+
+            //generate array with company types from 1st element of input
             string[] companyTypeGenerated = companyType(separated[0]);
 
+            //create a value to hold full native alias value
             string fullNativeAlias = "";
+
+            //create a value to hold short native alias value
             string shortNativeAlias = input;
 
+            /* 
+             * Transliterate each string value of input individually
+             * !!! will be used for future functionality !!!
+             */
             for (int i = 1; i < separated.Length; i++)
             {
+                //transliterate a word and add it to a nameSeparated string array
+                //value is not in use 08.08.2019
                 nameSeparated[i - 1] = transliteration(separated[i]);
+
+                //creates full native alias for company name, without company type
                 fullNativeAlias = fullNativeAlias + " " + separated[i];
             }
+
+            //native alias for company name, without company type
             companyName = fullNativeAlias;
+
+            //native alias for company name, with full company type
             fullNativeAlias = companyTypeGenerated[0] + fullNativeAlias;
 
-
+            //Transliterate short,full native alias and company name separetely
             string translitedShortNativeAlias = transliteration(shortNativeAlias);
             string translitedFullNativeAlias = transliteration(fullNativeAlias);
             string companyNameTranslited = transliteration(companyName);
 
+            //form output value with line breaks
             output = shortNativeAlias + System.Environment.NewLine +
                      fullNativeAlias + System.Environment.NewLine +
                      translitedShortNativeAlias + System.Environment.NewLine +
@@ -44,13 +70,23 @@ namespace CIS_Alias_generator
                      companyTypeGenerated[1] + companyNameTranslited + System.Environment.NewLine +
                      companyTypeGenerated[2] + companyNameTranslited + System.Environment.NewLine;
 
+            //set output value to output field
             txt_output.Text = output.ToUpper();
         }
 
+        /*
+         * Function to determine company type, based on 1st input value
+         * returns an array of 3 values:
+         * 1. Full native company type
+         * 2. short english company type
+         * 3. full english company type
+         */ 
         private string[] companyType(string input)
         {
+            //create array of length 3 to return
             string[] type = new string[3];
 
+            //switch case to decode company type
             switch (input)
             {
                 case "ОАО":
@@ -95,23 +131,53 @@ namespace CIS_Alias_generator
                     type[1] = "MUE";
                     type[2] = "MUNICIPAL UNITARY ENTERPRISE";
                     break;
+                case "ФГУП":
+                case "фгуп":
+                    type[0] = "ФЕДЕРАЛЬНОЕ ГОСУДАРСТВЕННОЕ УНИТАРНОЕ ПРЕДПРИЯТИЕ";
+                    type[1] = "FGUP";
+                    type[2] = "FEDERAL STATE UNITARY ENTERPRISE";
+                    break;
+
+                    // if company type is not in the list, transliterate input
                 default:
                     type[0] = input;
                     type[1] = transliteration(input);
                     type[2] = type[1];
                     break;
             }
-            return type;
-        } 
 
+            //return array to main function
+            return type;
+        }
+        //end of companyType function
+
+        /*
+         * Function to transliterate russian input to english 
+         * according to CIS guidelines
+         * transforms string value to character array and transliterates each value individually
+         */
         private string transliteration(string input)
         {
+            // value to check if special rule needs to be applied
             bool previousVowel = true;
+
+            //current character from input
             char current = ' ';
+
+            //string value of transliterated character
             string english = "";
+
+            //transliterated result (whole name)
             string result="";
 
+            /* 
+             * separates string input into character array
+             */
             char[] separated = input.ToCharArray();
+
+            /* 
+            * transliterate each character in array
+            */
             for (int i = 0; i < separated.Length; i++)
             {
                 current = separated[i];
@@ -290,14 +356,18 @@ namespace CIS_Alias_generator
                         english = " ";
                         previousVowel = true;
                         break;
+                    //if special character, transform it to string
                     default:
-                        english = "_";
+                        english = current.ToString();
                         break;
                 }
+                //add a generated string to result value
                 result = result + english;
             }
 
             return result;
         }
+        //end of transliteration function
+
     }
 }
