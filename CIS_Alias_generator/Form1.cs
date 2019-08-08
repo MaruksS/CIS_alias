@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Windows.Forms;
 
 namespace CIS_Alias_generator
@@ -10,17 +11,20 @@ namespace CIS_Alias_generator
             InitializeComponent();
         }
 
+        bool abbreviationBehind = false;
+        bool noAbbreviation = false;
+
         //on Generate button click
         private void btn_generate_Click(object sender, EventArgs e)
         {
             //get input
-            string input = txt_input.Text;
+            string input = txt_input.Text.Trim();
 
             //split input into string values array
             string[] separated = input.Split(null);
 
             //create empty string array with length of separated array without company type abbreviation
-            string[] nameSeparated = new string[separated.Length - 1];
+            string[] nameSeparated = new string[separated.Length];
 
             //create a value to hold company name
             string companyName;
@@ -29,47 +33,89 @@ namespace CIS_Alias_generator
             string output = "";
 
             //generate array with company types from 1st element of input
-            string[] companyTypeGenerated = companyType(separated[0]);
+            string[] companyTypeGenerated = companyType(separated[0], separated[separated.Length-1]);
 
-            //create a value to hold full native alias value
+            //full native alias value
             string fullNativeAlias = "";
 
-            //create a value to hold short native alias value
+            //native alias value
+
             string shortNativeAlias = input;
+
+            //native company name value
+            string nativeCompanyName = "";
+
+            //transliterated company name value
+            string transliteratedCompanyName;
+
+            //transliterated company type values
+            string transliteratedShortCompanyType;
+            string transliteratedFullCompanyType;
+
+            //if abbreviation is behind, change order
+            if (abbreviationBehind)
+            {
+                nameSeparated = separated.Take(separated.Count() - 1).ToArray();
+                transliteratedShortCompanyType = transliteration(separated[separated.Length - 1]);
+            }
+            else
+            {
+                nameSeparated = separated.Skip(1).ToArray();
+                transliteratedShortCompanyType = transliteration(separated[0]);
+            }
 
             /* 
              * Transliterate each string value of input individually
              * !!! will be used for future functionality !!!
              */
-            for (int i = 1; i < separated.Length; i++)
+            for (int i = 0; i < nameSeparated.Length; i++)
             {
                 //transliterate a word and add it to a nameSeparated string array
                 //value is not in use 08.08.2019
-                nameSeparated[i - 1] = transliteration(separated[i]);
+                //nameSeparated[i - 1] = transliteration(separated[i]);
 
                 //creates full native alias for company name, without company type
-                fullNativeAlias = fullNativeAlias + " " + separated[i];
+                nativeCompanyName = nativeCompanyName + " " + nameSeparated[i];
             }
 
             //native alias for company name, without company type
-            companyName = fullNativeAlias;
+            companyName = nativeCompanyName;
+
+            //transliterate company name and type
+            transliteratedCompanyName = transliteration(nativeCompanyName);
+            transliteratedFullCompanyType = transliteration(companyTypeGenerated[0]);
 
             //native alias for company name, with full company type
-            fullNativeAlias = companyTypeGenerated[0] + fullNativeAlias;
+            fullNativeAlias = companyTypeGenerated[0] + nativeCompanyName;
 
             //Transliterate short,full native alias and company name separetely
             string translitedShortNativeAlias = transliteration(shortNativeAlias);
             string translitedFullNativeAlias = transliteration(fullNativeAlias);
             string companyNameTranslited = transliteration(companyName);
 
-            //form output value with line breaks
-            output = shortNativeAlias + System.Environment.NewLine +
-                     fullNativeAlias + System.Environment.NewLine +
-                     translitedShortNativeAlias + System.Environment.NewLine +
-                     translitedFullNativeAlias + System.Environment.NewLine +
-                     companyTypeGenerated[1] + companyNameTranslited + System.Environment.NewLine +
-                     companyTypeGenerated[2] + companyNameTranslited + System.Environment.NewLine;
+            //if abbreviation is behind, change order of native alias
+            if (abbreviationBehind)
+            {
+                shortNativeAlias = separated[separated.Length - 1] + nativeCompanyName;
+            }
 
+            //if no abbreviation, remove unused input 
+            if (noAbbreviation)
+            {
+                output = input + System.Environment.NewLine +
+                    transliteration(input);
+            }
+            else
+            {
+                //form output value with line breaks
+                output = shortNativeAlias + System.Environment.NewLine +
+                         fullNativeAlias + System.Environment.NewLine +
+                         transliteratedShortCompanyType + transliteratedCompanyName + System.Environment.NewLine +
+                         transliteratedFullCompanyType + transliteratedCompanyName + System.Environment.NewLine +
+                         companyTypeGenerated[1] + transliteratedCompanyName + System.Environment.NewLine +
+                         companyTypeGenerated[2] + transliteratedCompanyName + System.Environment.NewLine;
+            }
+            
             //set output value to output field
             txt_output.Text = output.ToUpper();
         }
@@ -81,10 +127,34 @@ namespace CIS_Alias_generator
          * 2. short english company type
          * 3. full english company type
          */ 
-        private string[] companyType(string input)
+        private string[] companyType(string firstInput, string lastInput)
+        {
+            //create array of length 3 to return
+            string[] companyType = new string[3];
+
+            //value is second try
+            bool isSecondAttempt = false;
+
+            //send first check
+            companyType = transliterateCompany(firstInput, isSecondAttempt);
+            //if returned null -> first input is not abbreviation
+            if (companyType==null)
+            {
+                isSecondAttempt = true;
+                companyType = transliterateCompany(lastInput, isSecondAttempt);
+            }
+
+            //return array to main function
+            return companyType;
+        }
+        //end of companyType function
+
+        private string[] transliterateCompany(string input, bool isSecondAttempt)
         {
             //create array of length 3 to return
             string[] type = new string[3];
+
+            bool isAbbreviation = true;
 
             //switch case to decode company type
             switch (input)
@@ -138,18 +208,38 @@ namespace CIS_Alias_generator
                     type[2] = "FEDERAL STATE UNITARY ENTERPRISE";
                     break;
 
-                    // if company type is not in the list, transliterate input
+                // if company type is not in the list, transliterate input
                 default:
                     type[0] = input;
                     type[1] = transliteration(input);
                     type[2] = type[1];
+                    isAbbreviation = false;
                     break;
             }
-
-            //return array to main function
-            return type;
+            if (isAbbreviation && !isSecondAttempt)
+            {
+                noAbbreviation = false;
+                abbreviationBehind = false;
+                return type;
+            }
+            else if (!isAbbreviation && !isSecondAttempt)
+            {
+                return null;
+            }
+            else if (isAbbreviation && isSecondAttempt)
+            {
+                noAbbreviation = false;
+                abbreviationBehind = true;
+                return type;
+            }
+            else
+            {
+                abbreviationBehind = false;
+                noAbbreviation = true;
+                return type;
+            }
+            
         }
-        //end of companyType function
 
         /*
          * Function to transliterate russian input to english 
