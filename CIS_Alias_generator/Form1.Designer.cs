@@ -90,7 +90,7 @@
             this.Controls.Add(this.txt_input);
             this.Controls.Add(this.lbl_name);
             this.Name = "Form1";
-            this.Text = "Form1";
+            this.Text = "CIS Alias Generator";
             this.ResumeLayout(false);
             this.PerformLayout();
 
