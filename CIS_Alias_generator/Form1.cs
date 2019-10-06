@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Linq;
 using System.Windows.Forms;
-using Excel = Microsoft.Office.Interop.Excel;
 
 
 namespace CIS_Alias_generator
@@ -10,109 +9,436 @@ namespace CIS_Alias_generator
     {
         //create dictionary array of transliteration symbol objects
         transliteration[] dictionary = new transliteration[100];
+        ExceptionRules[] rules = new ExceptionRules[20];
+        string[] indicators = new string[50];
+        string[,] allCompanyAbbreviations = new string[20, 20];
+
+        string[] companyAliases = new string[20];
 
 
         public Form1()
         {
             InitializeComponent();
+            string line;
+            string mode = "";
+            int count=0;
 
-            Excel.Application xlApp = new Excel.Application();
-            Excel.Workbook xlWorkbook = xlApp.Workbooks.Open(@"C:\docs\transliteration.xlsx");
-            Excel._Worksheet xlWorksheet = xlWorkbook.Sheets[1];
-            Excel.Range xlRange = xlWorksheet.UsedRange;
-
-            int rowCount = xlRange.Rows.Count;
-            int colCount = xlRange.Columns.Count;
-            string lang = xlWorksheet.Name;
-
-
-            for (int i = 2; i <= rowCount; i++)
+            // Read the file and save rules
+            System.IO.StreamReader file =
+                new System.IO.StreamReader(@"C:\docs\config.txt");
+            while ((line = file.ReadLine()) != null)
             {
-                dictionary[i] = new transliteration(Convert.ToString(xlRange.Cells[i, 1].Value2), Convert.ToString(xlRange.Cells[i, 2].Value2));
+                if (line=="[alphabet]")
+                {
+                    mode = "alphabet";
+                    count = 0;
+                }
+                if (line == "[rules]")
+                {
+                    mode = "rules";
+                    count = 0;
+                }
+                if (line == "[company]")
+                {
+                    mode = "company";
+                    count = 0;
+                }
+                if (line == "[type1]")
+                {
+                    mode = "type1";
+                    count = 0;
+                }
+
+                //add each letter with transliteration to the dictionary
+                if (mode == "alphabet")
+                {
+                    string[] letters = line.Split('-');
+                    if (letters.Length > 1)
+                    {
+                        dictionary[count] = new transliteration(letters[0], letters[1]);
+                    }
+                    else
+                    {
+                        dictionary[count] = new transliteration(letters[0], "");
+                    }
+                    count++;
+                }
+
+                //TODO: Rule handling
+                if (mode == "rules")
+                {
+                    string[] transliterationParameters = line.Split(':');
+                    if (transliterationParameters.Length==4)
+                    {
+                        rules[count] = new ExceptionRules(transliterationParameters[0], transliterationParameters[1], transliterationParameters[2], transliterationParameters[3]);
+                    }
+                }
+                if (mode == "type1")
+                {
+                    string symbol = line;
+                    indicators[count] = symbol;
+                    count++;
+                }
+
+                //add each company abbreviation to the abbreviation list
+                if (mode == "company")
+                {
+                    string[] companyArray = line.Split('~');
+                    for (int i = 0; i < companyArray.Length; i++)
+                    {
+                        allCompanyAbbreviations[count,i] = companyArray[i];
+                    }
+                    count++;
+                }
             }
+            file.Close();
         }
+
 
         private string transliterate(string input, int type)
         {
-
+            // final output string
             string resultTotal = "";
-            string english;
 
+            companyAliases = new string[20];
+
+            //temporary value to store translation 
+            string english;
+            string englishResult="";
+            string nativeResult="";
+
+            int row = 0;
+
+            //abbreviation indicators
+            bool abbreviationBehind = false;
+            bool abbreviationFront = false;
+            bool noAbbreviation = false;
+
+            //split input into string values array
+            string[] separated = input.Split(null);
+
+            /* 
+            * if type person
+            */
             if (type == 1)
             {
-                //split input into string values array
-                string[] separated = input.Split(null);
-
-                /* 
-                 * Transliterate each string value of input individually
-                 */
+                //Transliterate each string value of input individually
                 for (int i = 0; i < separated.Length; i++)
                 {
+                    //if 1st character, make upper case
                     if (i == 0)
                     {
                         english = transliterateWord(separated[i], true);
-                        resultTotal = english + ",";
+                        englishResult = english + ",";
+                        nativeResult = separated[i].ToUpper() + ",";
                     }
                     else
                     {
                         english = transliterateWord(separated[i], false);
-                        resultTotal = resultTotal + english + " ";
+                        englishResult = englishResult + english + " ";
+                        nativeResult = nativeResult + FirstCharToUpper(separated[i]) + " ";
                     }
-                }
+                }//End of for: Transliterate each string value of input individually
+                resultTotal = nativeResult + Environment.NewLine + englishResult;
             }
 
+            /* 
+            * if type entity
+            */
+            else
+            {
+                //Transliterate each string value of input individually
+                for (int i = 0; i < separated.Length; i++)
+                {
+                    // if 1st element of input
+                    if (i == 0)
+                    {
+                        //Find first and last word of input
+                        string lastWord = separated[separated.Length-1];
+                        string firstWord = separated[0];
+                        row = 0;
+
+                        //check if last/first word of input is inside abbreviation list
+                        for (int j = 0; j < allCompanyAbbreviations.GetLength(0); j++)
+                        {
+                            //if abbreaviation is first word
+                            if (allCompanyAbbreviations[j, 0] == firstWord | allCompanyAbbreviations[j, 1] == firstWord)
+                            {
+                                abbreviationFront = true;
+                                row = j;
+                                break;
+                            }
+                            //if abbreaviation is last word
+                            else if (allCompanyAbbreviations[j, 0] == lastWord | allCompanyAbbreviations[j, 1] == lastWord)
+                            {
+                                abbreviationBehind = true;
+                                row = j;
+                                break;
+                            }
+                        }
+
+                        // add abbreviation if found
+                        if (abbreviationBehind | abbreviationFront)
+                        {
+                            // add all abbreviation translations to alias
+                            for (int j = 1; j < allCompanyAbbreviations.GetLength(0); j++)
+                            {
+                                int x = j - 1;
+                                if (allCompanyAbbreviations[row, j] != null)
+                                {
+                                    companyAliases[x] = allCompanyAbbreviations[row, j] + " ";
+                                }
+                            }
+
+                            // if abbreviation was behind name, put it upfront and add 1st word
+                            if (abbreviationBehind)
+                            {
+                                addToCompanyName(separated[i], noAbbreviation, row);
+                            }
+                        }
+
+                        //if no abbreviation found, translate
+                        else
+                        {
+                            companyAliases[0] = "";
+                            companyAliases[1] = "";
+                            noAbbreviation = true;
+                            addToCompanyName(separated[i], noAbbreviation, row);  
+                        }
+                    } //end of (if 1st element of input)
+
+                    //if 2nd> element, transliterate and add to alias
+                    else
+                    {
+                        if (abbreviationBehind && i == separated.Length-1) break;
+
+                        else
+                        {
+                            addToCompanyName(separated[i], noAbbreviation, row);
+                        }
+                    }
+                } //End of for: Transliterate each string value of input individually
+
+                //after translating all aliases add them to result string
+                for (int i = 0; i < companyAliases.Length; i++)
+                {
+                    if (companyAliases[i] !=null)
+                    {
+                        resultTotal = resultTotal + companyAliases[i] + Environment.NewLine;
+                    }
+                }
+
+
+            } //End of (if entity)
             return resultTotal;
         }
 
+        //translate company name
+        private void addToCompanyName(string text, bool noAbbreviation, int row)
+        {
+            //check if alias contains native symbols
+            bool isNative = false;
+
+            //how many alias outputs are neccesary
+            int times = 2;
+
+            //if no abbreviation found add 2 aliases (native and transliterated)
+            if(noAbbreviation)
+            {
+                companyAliases[0] = companyAliases[0] + text.ToUpper() + " ";
+                companyAliases[1] = companyAliases[1] + transliterateWord(text, true) + " ";
+            }
+
+            //if abbreviation found
+            else
+            {
+                //nr of loops is equal to nr of abbreviation translations
+                times = companyAliases.Length;
+
+                //loop through each alias
+                for (int j = 0; j < times; j++)
+                {
+                    //set default as non-native
+                    isNative = false;
+
+                    if (companyAliases[j] != null)
+                    {
+                        //convert word to char array and check if it contains native symbols
+                        char[] aliasCharacterArray = companyAliases[j].ToCharArray();
+                        for (int i = 0; i < aliasCharacterArray.Length; i++)
+                        {
+                            if (checkDictionary(aliasCharacterArray[i]))
+                            {
+                                isNative = true;
+                                break;
+                            }
+                        }
+                        //if contains native symbols - do not transliterate
+                        if (isNative)
+                        {
+                            companyAliases[j] = companyAliases[j] + text.ToUpper() + " ";
+                        }
+                        //if no native symbols found - transliterate
+                        else
+                        {
+                            companyAliases[j] = companyAliases[j] + transliterateWord(text, true) + " ";
+                        }
+                    }
+                }//end of loop through each alias
+            }//end of if abbreviation found
+        }
+
+        /* 
+        * translate single word
+        */
         private string transliterateWord(string input, bool capitals)
         {
+            // transliterated final word
             string result = "";
 
             /* 
              * separates string input into character array
              */
             char[] separated = input.ToCharArray();
+
+            // temporary variable to hold currently viewed character
             char current;
+
+            // temporary variable to hold original character (from object)
             char original = ' ';
+
+            // temporary variable to hold special symbol, to which special rules will apply (from object)
+            char specialSymbol = '%';
+
+            // temporary variable to hold special symbol replacement (from object)
+            string replacement= "";
+
+            //TODO: apply dynamic rule handling
+            if (rules[0] != null)
+            {
+                specialSymbol = rules[0].getSymbol().ToCharArray()[0];
+                replacement = rules[0].getReplacement();
+            }
+
+            //if special symbol (for the rule handling)
+            bool special = false;
+
+            // temporary variable to hold english transliteration
             string english = "";
 
+            //loop through each character of a word
             for (int i = 0; i < separated.Length; i++)
             {
+                //select current character
                 current = separated[i];
 
-                for (int j = 1; j < dictionary.Length; j++)
+                //apply rule handling on character
+                if (special & current == specialSymbol || (i == 0 && indicators.Contains(" ") & current == specialSymbol))
                 {
-                    original = ' ';
-                    if (dictionary[j] != null)
+                    english = replacement;
+                    if (i == 0)
                     {
-                        original = char.Parse(dictionary[j].getOriginal());
-                        if (current == original)
-                        {
-
-                            english = dictionary[j].getTranslit();
-                            if (i == 0)
-                            {
-                                english = FirstCharToUpper(english);
-                            }
-                            break;
-                        }
-                        else
-                        {
-                            english = current.ToString();
-
-                        }
+                        english = FirstCharToUpper(english);
                     }
                 }
+                // if special rules doesn't apply for character
+                else
+                {
+
+                    //loop through dictionary to find current character
+                    for (int j = 1; j < dictionary.Length; j++)
+                    {
+                        original = ' ';
+                        if (dictionary[j] != null)
+                        {
+                            original = char.Parse(dictionary[j].getOriginal());
+
+                            //if current character is found in dictionary, transliterate
+                            if (current == original)
+                            {
+                                english = dictionary[j].getTranslit();
+                                //if first character of the word, make it upper case
+                                if (i == 0) english = FirstCharToUpper(english);
+                                //break outside dictionary loop
+                                break;
+                            }
+                            //if current character is not found in dictionary, keep it
+                            else
+                            {
+                                english = current.ToString();
+                            }
+                        }
+                    }
+                    //check if current character is an indicator of special rule
+                    special = checkSpecial(current);
+                }
+
+                //if capitals required, transform
                 if (capitals && english != null)
                 {
                     english = english.ToUpper();
                 }
+                //add transliteration to result
                 result = result + english;
-            }
+            }//end of loop through each character of a word
 
+            //return word
             return result;
         }
 
+        /* 
+         * Check if current character falls under special rule
+         */
+        private bool checkSpecial(char current)
+        {
+            char indicator;
+            bool special = false;
+
+            for (int x = 0; x < indicators.Length; x++)
+            {
+                if (indicators[x] != null)
+                {
+                    indicator = indicators[x].ToCharArray()[0];
+                    if (indicator == current)
+                    {
+                        special = true;
+                        break;
+                    }
+                    else special = false;
+                }
+            }
+
+            return special;
+        }
+
+        /* 
+         * Check if current character falls under special rule
+         */
+        private bool checkDictionary(char current)
+        {
+            char indicator;
+            bool special = false;
+            
+            for (int x = 0; x < dictionary.Length; x++)
+            {
+                
+                if (dictionary[x] != null)
+                {
+                    indicator = dictionary[x].getOriginal().ToCharArray()[0];
+                    if (indicator == current)
+                    {
+                        special = true;
+                        break;
+                    }
+                    else special = false;
+                }
+            }
+            return special;
+        }
+
+        /* 
+         * Trigger button activity
+         */
         private void onBtnClick(object sender, EventArgs e)
         {
             string input = txt_input.Text.Trim();
@@ -121,12 +447,18 @@ namespace CIS_Alias_generator
             if (chb_Person.Checked == false)
             {
                 result = transliterate(input, 1);
+            }else
+            {
+                result = transliterate(input, 2);
             }
 
-            label1.Text = result;
+            txt_output.Text = result;
 
         }
 
+        /* 
+         * Change first character of string to UPPER CASE
+         */
         private string FirstCharToUpper(string input)
         {
             switch (input)
@@ -136,241 +468,6 @@ namespace CIS_Alias_generator
                 default: return input.First().ToString().ToUpper() + input.Substring(1);
             }
         }
-
-        /* 
-         * bool abbreviationBehind = false;
-         * bool noAbbreviation = false;
-         *
-         * on Generate button click
-        private void btn_generate_Click(object sender, EventArgs e)
-        {
-            //get input
-            string input = txt_input.Text.Trim();
-
-            //split input into string values array
-            string[] separated = input.Split(null);
-
-            //create empty string array with length of separated array without company type abbreviation
-            string[] nameSeparated = new string[separated.Length];
-
-            //create a value to hold company name
-            string companyName;
-
-            //create a value to hold output value
-            string output = "";
-
-            //generate array with company types from 1st element of input
-            string[] companyTypeGenerated = companyType(separated[0], separated[separated.Length - 1]);
-
-            //full native alias value
-            string fullNativeAlias = "";
-
-            //native alias value
-
-            string shortNativeAlias = input;
-
-            //native company name value
-            string nativeCompanyName = "";
-
-            //transliterated company name value
-            string transliteratedCompanyName;
-
-            //transliterated company type values
-            string transliteratedShortCompanyType;
-            string transliteratedFullCompanyType;
-
-            //if abbreviation is behind, change order
-            if (abbreviationBehind)
-            {
-                nameSeparated = separated.Take(separated.Count() - 1).ToArray();
-                transliteratedShortCompanyType = transliteration(separated[separated.Length - 1]);
-            }
-            else
-            {
-                nameSeparated = separated.Skip(1).ToArray();
-                transliteratedShortCompanyType = transliteration(separated[0]);
-            }
-
-            /* 
-             * Transliterate each string value of input individually
-             * !!! will be used for future functionality !!!
-        */
-        /* 
-            for (int i = 0; i < nameSeparated.Length; i++)
-            {
-                //transliterate a word and add it to a nameSeparated string array
-                //value is not in use 08.08.2019
-                //nameSeparated[i - 1] = transliteration(separated[i]);
-
-                //creates full native alias for company name, without company type
-                nativeCompanyName = nativeCompanyName + " " + nameSeparated[i];
-            }
-
-            //native alias for company name, without company type
-            companyName = nativeCompanyName;
-
-            //transliterate company name and type
-            transliteratedCompanyName = transliteration(nativeCompanyName);
-            transliteratedFullCompanyType = transliteration(companyTypeGenerated[0]);
-
-            //native alias for company name, with full company type
-            fullNativeAlias = companyTypeGenerated[0] + nativeCompanyName;
-
-            //Transliterate short,full native alias and company name separetely
-            string translitedShortNativeAlias = transliteration(shortNativeAlias);
-            string translitedFullNativeAlias = transliteration(fullNativeAlias);
-            string companyNameTranslited = transliteration(companyName);
-
-            //if abbreviation is behind, change order of native alias
-            if (abbreviationBehind)
-            {
-                shortNativeAlias = separated[separated.Length - 1] + nativeCompanyName;
-            }
-
-            //if no abbreviation, remove unused input 
-            if (noAbbreviation)
-            {
-                output = input + System.Environment.NewLine +
-                    transliteration(input);
-            }
-            else
-            {
-                //form output value with line breaks
-                output = shortNativeAlias + System.Environment.NewLine +
-                         fullNativeAlias + System.Environment.NewLine +
-                         transliteratedShortCompanyType + transliteratedCompanyName + System.Environment.NewLine +
-                         transliteratedFullCompanyType + transliteratedCompanyName + System.Environment.NewLine +
-                         companyTypeGenerated[1] + transliteratedCompanyName + System.Environment.NewLine +
-                         companyTypeGenerated[2] + transliteratedCompanyName + System.Environment.NewLine;
-            }
-
-            //set output value to output field
-            txt_output.Text = output.ToUpper();
-        }
-
-        /*
-         * Function to determine company type, based on 1st input value
-         * returns an array of 3 values:
-         * 1. Full native company type
-         * 2. short english company type
-         * 3. full english company type
-    */
-
-        /*
-            private string[] companyType(string firstInput, string lastInput)
-            {
-                //create array of length 3 to return
-                string[] companyType = new string[3];
-
-                //value is second try
-                bool isSecondAttempt = false;
-
-                //send first check
-                companyType = transliterateCompany(firstInput, isSecondAttempt);
-                //if returned null -> first input is not abbreviation
-                if (companyType == null)
-                {
-                    isSecondAttempt = true;
-                    companyType = transliterateCompany(lastInput, isSecondAttempt);
-                }
-
-                //return array to main function
-                return companyType;
-            }
-            //end of companyType function
-
-            private string[] transliterateCompany(string input, bool isSecondAttempt)
-            {
-                //create array of length 3 to return
-                string[] type = new string[3];
-
-                bool isAbbreviation = true;
-
-                //switch case to decode company type
-                switch (input)
-                {
-                    case "ОАО":
-                    case "оао":
-                        type[0] = "ОТКРЫТОЕ АКЦИОНЕРНОЕ ОБЩЕСТВО";
-                        type[1] = "OJSC";
-                        type[2] = "OPEN JOINT STOCK COMPANY";
-                        break;
-                    case "ЗАО":
-                    case "зао":
-                        type[0] = "ЗАКРЫТОЕ АКЦИОНЕРНОЕ ОБЩЕСТВО";
-                        type[1] = "CJSC";
-                        type[2] = "CLOSED JOINT STOCK COMPANY";
-                        break;
-                    case "ПАО":
-                    case "пао":
-                        type[0] = "ПУБЛИЧНОЕ АКЦИОНЕРНОЕ ОБЩЕСТВО";
-                        type[1] = "PJSC";
-                        type[2] = "PUBLIC JOINT STOCK COMPANY";
-                        break;
-                    case "ЧАО":
-                    case "чао":
-                        type[0] = "ЧАСТНОЕ АКЦИОНЕРНОЕ ОБЩЕСТВО";
-                        type[1] = "PJSC";
-                        type[2] = "PRIVATE JOINT STOCK COMPANY";
-                        break;
-                    case "АО":
-                    case "ао":
-                        type[0] = "АКЦИОНЕРНОЕ ОБЩЕСТВО";
-                        type[1] = "JSC";
-                        type[2] = "JOINT STOCK COMPANY";
-                        break;
-                    case "ООО":
-                    case "ооо":
-                        type[0] = "ОБЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ";
-                        type[1] = "LLC";
-                        type[2] = "LIMITED LIABILITY COMPANY";
-                        break;
-                    case "МУП":
-                    case "муп":
-                        type[0] = "МУНИЦИПАЛЬНОЕ УНИТАРНОЕ ПРЕДПРИЯТИЕ";
-                        type[1] = "MUE";
-                        type[2] = "MUNICIPAL UNITARY ENTERPRISE";
-                        break;
-                    case "ФГУП":
-                    case "фгуп":
-                        type[0] = "ФЕДЕРАЛЬНОЕ ГОСУДАРСТВЕННОЕ УНИТАРНОЕ ПРЕДПРИЯТИЕ";
-                        type[1] = "FGUP";
-                        type[2] = "FEDERAL STATE UNITARY ENTERPRISE";
-                        break;
-
-                    // if company type is not in the list, transliterate input
-                    default:
-                        type[0] = input;
-                        type[1] = transliteration(input);
-                        type[2] = type[1];
-                        isAbbreviation = false;
-                        break;
-                }
-                if (isAbbreviation && !isSecondAttempt)
-                {
-                    noAbbreviation = false;
-                    abbreviationBehind = false;
-                    return type;
-                }
-                else if (!isAbbreviation && !isSecondAttempt)
-                {
-                    return null;
-                }
-                else if (isAbbreviation && isSecondAttempt)
-                {
-                    noAbbreviation = false;
-                    abbreviationBehind = true;
-                    return type;
-                }
-                else
-                {
-                    abbreviationBehind = false;
-                    noAbbreviation = true;
-                    return type;
-                }
-
-            }
-            */
     }
 
 }

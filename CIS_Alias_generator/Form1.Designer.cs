@@ -33,7 +33,6 @@
             this.txt_output = new System.Windows.Forms.TextBox();
             this.lbl_alias = new System.Windows.Forms.Label();
             this.btn_generate = new System.Windows.Forms.Button();
-            this.label1 = new System.Windows.Forms.Label();
             this.chb_Person = new System.Windows.Forms.CheckBox();
             this.SuspendLayout();
             // 
@@ -85,15 +84,6 @@
             this.btn_generate.UseVisualStyleBackColor = true;
             this.btn_generate.Click += new System.EventHandler(this.onBtnClick);
             // 
-            // label1
-            // 
-            this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(152, 638);
-            this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(64, 25);
-            this.label1.TabIndex = 5;
-            this.label1.Text = "label1";
-            // 
             // chb_Person
             // 
             this.chb_Person.AutoSize = true;
@@ -111,7 +101,6 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1032, 823);
             this.Controls.Add(this.chb_Person);
-            this.Controls.Add(this.label1);
             this.Controls.Add(this.btn_generate);
             this.Controls.Add(this.lbl_alias);
             this.Controls.Add(this.txt_output);
@@ -132,7 +121,6 @@
         private System.Windows.Forms.TextBox txt_output;
         private System.Windows.Forms.Label lbl_alias;
         private System.Windows.Forms.Button btn_generate;
-        private System.Windows.Forms.Label label1;
         private System.Windows.Forms.CheckBox chb_Person;
     }
 }
