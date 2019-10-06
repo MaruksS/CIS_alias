@@ -34,6 +34,11 @@
             this.lbl_alias = new System.Windows.Forms.Label();
             this.btn_generate = new System.Windows.Forms.Button();
             this.chb_Person = new System.Windows.Forms.CheckBox();
+            this.menuStrip1 = new System.Windows.Forms.MenuStrip();
+            this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.selectConfigToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.openFileDialog1 = new System.Windows.Forms.OpenFileDialog();
+            this.menuStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
             // lbl_name
@@ -94,6 +99,36 @@
             this.chb_Person.Text = "Entity";
             this.chb_Person.UseVisualStyleBackColor = true;
             // 
+            // menuStrip1
+            // 
+            this.menuStrip1.ImageScalingSize = new System.Drawing.Size(28, 28);
+            this.menuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.fileToolStripMenuItem});
+            this.menuStrip1.Location = new System.Drawing.Point(0, 0);
+            this.menuStrip1.Name = "menuStrip1";
+            this.menuStrip1.Size = new System.Drawing.Size(1032, 38);
+            this.menuStrip1.TabIndex = 7;
+            this.menuStrip1.Text = "menuStrip1";
+            // 
+            // fileToolStripMenuItem
+            // 
+            this.fileToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.selectConfigToolStripMenuItem});
+            this.fileToolStripMenuItem.Name = "fileToolStripMenuItem";
+            this.fileToolStripMenuItem.Size = new System.Drawing.Size(56, 34);
+            this.fileToolStripMenuItem.Text = "File";
+            // 
+            // selectConfigToolStripMenuItem
+            // 
+            this.selectConfigToolStripMenuItem.Name = "selectConfigToolStripMenuItem";
+            this.selectConfigToolStripMenuItem.Size = new System.Drawing.Size(239, 34);
+            this.selectConfigToolStripMenuItem.Text = "Select config";
+            this.selectConfigToolStripMenuItem.Click += new System.EventHandler(this.selectConfigToolStripMenuItem_Click);
+            // 
+            // openFileDialog1
+            // 
+            this.openFileDialog1.FileName = "openFileDialog1";
+            // 
             // Form1
             // 
             this.AcceptButton = this.btn_generate;
@@ -106,9 +141,13 @@
             this.Controls.Add(this.txt_output);
             this.Controls.Add(this.txt_input);
             this.Controls.Add(this.lbl_name);
+            this.Controls.Add(this.menuStrip1);
+            this.MainMenuStrip = this.menuStrip1;
             this.Margin = new System.Windows.Forms.Padding(6);
             this.Name = "Form1";
-            this.Text = "CIS Alias Generator";
+            this.Text = "Alias Generator";
+            this.menuStrip1.ResumeLayout(false);
+            this.menuStrip1.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -122,6 +161,10 @@
         private System.Windows.Forms.Label lbl_alias;
         private System.Windows.Forms.Button btn_generate;
         private System.Windows.Forms.CheckBox chb_Person;
+        private System.Windows.Forms.MenuStrip menuStrip1;
+        private System.Windows.Forms.ToolStripMenuItem fileToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem selectConfigToolStripMenuItem;
+        private System.Windows.Forms.OpenFileDialog openFileDialog1;
     }
 }
 

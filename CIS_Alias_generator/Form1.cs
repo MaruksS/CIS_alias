@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using System.Windows.Forms;
+using System.IO;
 
 
 namespace CIS_Alias_generator
@@ -15,20 +16,31 @@ namespace CIS_Alias_generator
 
         string[] companyAliases = new string[20];
 
+        string configFile = Properties.Settings.Default.Config;
 
-        public Form1()
+        //resets configuration
+        private void reset()
         {
-            InitializeComponent();
+            dictionary = new transliteration[100];
+            rules = new ExceptionRules[20];
+            indicators = new string[50];
+            allCompanyAbbreviations = new string[20, 20];
+            companyAliases = new string[20];
+        }
+
+
+        private void readConfig()
+        {
             string line;
             string mode = "";
-            int count=0;
+            int count = 0;
 
             // Read the file and save rules
-            System.IO.StreamReader file =
-                new System.IO.StreamReader(@"C:\docs\config.txt");
+            StreamReader file =
+                new StreamReader(configFile);
             while ((line = file.ReadLine()) != null)
             {
-                if (line=="[alphabet]")
+                if (line == "[alphabet]")
                 {
                     mode = "alphabet";
                     count = 0;
@@ -68,7 +80,7 @@ namespace CIS_Alias_generator
                 if (mode == "rules")
                 {
                     string[] transliterationParameters = line.Split(':');
-                    if (transliterationParameters.Length==4)
+                    if (transliterationParameters.Length == 4)
                     {
                         rules[count] = new ExceptionRules(transliterationParameters[0], transliterationParameters[1], transliterationParameters[2], transliterationParameters[3]);
                     }
@@ -86,12 +98,23 @@ namespace CIS_Alias_generator
                     string[] companyArray = line.Split('~');
                     for (int i = 0; i < companyArray.Length; i++)
                     {
-                        allCompanyAbbreviations[count,i] = companyArray[i];
+                        allCompanyAbbreviations[count, i] = companyArray[i];
                     }
                     count++;
                 }
             }
             file.Close();
+        }
+
+        public Form1()
+        {
+            InitializeComponent();
+
+            //if configfile is present
+            if (configFile != "" && File.Exists(configFile))
+            {
+                readConfig();
+            }
         }
 
 
@@ -135,7 +158,7 @@ namespace CIS_Alias_generator
                     else
                     {
                         english = transliterateWord(separated[i], false);
-                        englishResult = englishResult + english + " ";
+                        englishResult = englishResult + FirstCharToUpper(english) + " ";
                         nativeResult = nativeResult + FirstCharToUpper(separated[i]) + " ";
                     }
                 }//End of for: Transliterate each string value of input individually
@@ -456,6 +479,19 @@ namespace CIS_Alias_generator
 
         }
 
+        private void selectConfigToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (openFileDialog1.ShowDialog() == DialogResult.OK)
+            {
+                //configFile = Path.GetDirectoryName(openFileDialog1.FileName);
+                configFile = openFileDialog1.FileName;
+                Properties.Settings.Default.Config = configFile;
+                Properties.Settings.Default.Save();
+                reset();
+                readConfig();
+            }
+        }
+
         /* 
          * Change first character of string to UPPER CASE
          */
@@ -468,6 +504,7 @@ namespace CIS_Alias_generator
                 default: return input.First().ToString().ToUpper() + input.Substring(1);
             }
         }
+
     }
 
 }
