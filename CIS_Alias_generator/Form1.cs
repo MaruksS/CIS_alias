@@ -80,9 +80,15 @@ namespace CIS_Alias_generator
                 if (mode == "rules")
                 {
                     string[] transliterationParameters = line.Split(':');
-                    if (transliterationParameters.Length == 4)
+                    if (transliterationParameters.Length >= 4)
                     {
+                        //string[] possibilities = new string[10];
+                        for (int i = 3; i < transliterationParameters.Length; i++)
+                        {
+                            //possibilities[i - 3] = transliterationParameters[i];
+                        }
                         rules[count] = new ExceptionRules(transliterationParameters[0], transliterationParameters[1], transliterationParameters[2], transliterationParameters[3]);
+                        count++;
                     }
                 }
                 if (mode == "type1")
@@ -158,8 +164,8 @@ namespace CIS_Alias_generator
                     else
                     {
                         english = transliterateWord(separated[i], false);
-                        englishResult = englishResult + FirstCharToUpper(english) + " ";
-                        nativeResult = nativeResult + FirstCharToUpper(separated[i]) + " ";
+                        englishResult = englishResult + FirstCharToUpper(english.ToLower()) + " ";
+                        nativeResult = nativeResult + FirstCharToUpper(separated[i].ToLower()) + " ";
                     }
                 }//End of for: Transliterate each string value of input individually
                 resultTotal = nativeResult + Environment.NewLine + englishResult;
@@ -331,17 +337,10 @@ namespace CIS_Alias_generator
             char original = ' ';
 
             // temporary variable to hold special symbol, to which special rules will apply (from object)
-            char specialSymbol = '%';
+            char specialSymbol;
 
             // temporary variable to hold special symbol replacement (from object)
             string replacement= "";
-
-            //TODO: apply dynamic rule handling
-            if (rules[0] != null)
-            {
-                specialSymbol = rules[0].getSymbol().ToCharArray()[0];
-                replacement = rules[0].getReplacement();
-            }
 
             //if special symbol (for the rule handling)
             bool special = false;
@@ -355,46 +354,44 @@ namespace CIS_Alias_generator
                 //select current character
                 current = separated[i];
 
-                //apply rule handling on character
-                if (special & current == specialSymbol || (i == 0 && indicators.Contains(" ") & current == specialSymbol))
+                //TODO: apply dynamic rule handling
+                if (rules[0] != null)
                 {
-                    english = replacement;
-                    if (i == 0)
+                    bool exceptionFound = false;
+                    for (int j = 0; j < rules.Length; j++)
                     {
-                        english = FirstCharToUpper(english);
-                    }
-                }
-                // if special rules doesn't apply for character
-                else
-                {
-
-                    //loop through dictionary to find current character
-                    for (int j = 1; j < dictionary.Length; j++)
-                    {
-                        original = ' ';
-                        if (dictionary[j] != null)
+                        if (rules[j] != null)
                         {
-                            original = char.Parse(dictionary[j].getOriginal());
+                            specialSymbol = rules[j].getSymbol().ToCharArray()[0];
+                            replacement = rules[j].getReplacement();
 
-                            //if current character is found in dictionary, transliterate
-                            if (current == original)
+                            //apply rule handling on character
+                            if (special & current == specialSymbol || (i == 0 && indicators.Contains(" ") & current == specialSymbol))
                             {
-                                english = dictionary[j].getTranslit();
-                                //if first character of the word, make it upper case
-                                if (i == 0) english = FirstCharToUpper(english);
-                                //break outside dictionary loop
+                                english = replacement;
+                                if (i == 0)
+                                {
+                                    english = FirstCharToUpper(english);
+                                }
+                                exceptionFound = true;
                                 break;
-                            }
-                            //if current character is not found in dictionary, keep it
-                            else
-                            {
-                                english = current.ToString();
                             }
                         }
                     }
-                    //check if current character is an indicator of special rule
-                    special = checkSpecial(current);
+                    if (!exceptionFound)
+                    {
+                        english = findCharTransliteration(current, i);
+                    }
                 }
+
+                // if special rules doesn't apply for character
+                else
+                {
+                    english = findCharTransliteration(current, i);
+                }
+
+                //check if current character is an indicator of special rule
+                special = checkSpecial(current);
 
                 //if capitals required, transform
                 if (capitals && english != null)
@@ -407,6 +404,39 @@ namespace CIS_Alias_generator
 
             //return word
             return result;
+        }
+
+        private string findCharTransliteration(char current, int i)
+        {
+            // temporary variable to hold english transliteration
+            string english = "";
+
+            //loop through dictionary to find current character
+            for (int j = 1; j < dictionary.Length; j++)
+            {
+                char original = ' ';
+                if (dictionary[j] != null)
+                {
+                    original = char.Parse(dictionary[j].getOriginal());
+
+                    //if current character is found in dictionary, transliterate
+                    if (current == original)
+                    {
+                        english = dictionary[j].getTranslit();
+                        //if first character of the word, make it upper case
+                        if (i == 0) english = FirstCharToUpper(english);
+                        //break outside dictionary loop
+                        break;
+                    }
+                    //if current character is not found in dictionary, keep it
+                    else
+                    {
+                        english = current.ToString();
+                    }
+                }
+            }
+
+            return english;
         }
 
         /* 
