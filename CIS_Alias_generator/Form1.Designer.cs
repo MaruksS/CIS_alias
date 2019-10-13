@@ -121,7 +121,7 @@
             // selectConfigToolStripMenuItem
             // 
             this.selectConfigToolStripMenuItem.Name = "selectConfigToolStripMenuItem";
-            this.selectConfigToolStripMenuItem.Size = new System.Drawing.Size(239, 34);
+            this.selectConfigToolStripMenuItem.Size = new System.Drawing.Size(223, 34);
             this.selectConfigToolStripMenuItem.Text = "Select config";
             this.selectConfigToolStripMenuItem.Click += new System.EventHandler(this.selectConfigToolStripMenuItem_Click);
             // 

@@ -11,6 +11,7 @@ namespace CIS_Alias_generator
         //create dictionary array of transliteration symbol objects
         transliteration[] dictionary = new transliteration[100];
         ExceptionRules[] rules = new ExceptionRules[20];
+        word[] userInput = new word[20];
         string[] indicators = new string[50];
         string[,] allCompanyAbbreviations = new string[20, 20];
 
@@ -18,9 +19,12 @@ namespace CIS_Alias_generator
 
         string configFile = Properties.Settings.Default.Config;
 
+        int[] exceptionsInWord;
+
         //resets configuration
         private void reset()
         {
+            userInput = new word[20];
             dictionary = new transliteration[100];
             rules = new ExceptionRules[20];
             indicators = new string[50];
@@ -82,12 +86,12 @@ namespace CIS_Alias_generator
                     string[] transliterationParameters = line.Split(':');
                     if (transliterationParameters.Length >= 4)
                     {
-                        //string[] possibilities = new string[10];
+                        string[] possibilities = new string[transliterationParameters.Length-3];
                         for (int i = 3; i < transliterationParameters.Length; i++)
                         {
-                            //possibilities[i - 3] = transliterationParameters[i];
+                            possibilities[i - 3] = transliterationParameters[i];
                         }
-                        rules[count] = new ExceptionRules(transliterationParameters[0], transliterationParameters[1], transliterationParameters[2], transliterationParameters[3]);
+                        rules[count] = new ExceptionRules(transliterationParameters[0], transliterationParameters[1], transliterationParameters[2], possibilities);
                         count++;
                     }
                 }
@@ -128,12 +132,11 @@ namespace CIS_Alias_generator
         {
             // final output string
             string resultTotal = "";
+            string englishResult = "";
 
             companyAliases = new string[20];
 
             //temporary value to store translation 
-            string english;
-            string englishResult="";
             string nativeResult="";
 
             int row = 0;
@@ -146,28 +149,69 @@ namespace CIS_Alias_generator
             //split input into string values array
             string[] separated = input.Split(null);
 
+
+            exceptionsInWord = new int[separated.Length];
+
             /* 
             * if type person
             */
             if (type == 1)
             {
-                //Transliterate each string value of input individually
+                string[] variations = new string[0];
+                int maxException = 0;
                 for (int i = 0; i < separated.Length; i++)
                 {
-                    //if 1st character, make upper case
-                    if (i == 0)
+                    int exceptionCount = countExceptions(separated[i]);
+                    if (maxException < exceptionCount) maxException = exceptionCount;
+                }
+
+                for (int i = 0; i < separated.Length; i++)
+                {
+                    if (maxException == 0) variations = simpleTranslit(separated[i], maxException);
+                    else variations = AltTransliterateWord(separated[i], maxException, maxException);
+
+                    userInput[i] = new word(separated[i], variations, maxException, i);
+                }
+                int variationCount = countVariations();
+
+                string[] aliases = new string[variationCount];
+
+                //create aliases for max variations
+                for (int i = 0; i < variationCount; i++)
+                {
+                    if (i==0) aliases[i] = "";
+
+                    for (int j = 0; j < userInput.Length; j++)
                     {
-                        english = transliterateWord(separated[i], true);
-                        englishResult = english + ",";
-                        nativeResult = separated[i].ToUpper() + ",";
+                        if (userInput[j]!=null)
+                        {
+                            //if no variation available, use the standard one
+                            if (userInput[j].getVariation()[i] == null) aliases[i] = aliases[i] + userInput[j].getVariation()[0] + " ";
+                            else aliases[i] = aliases[i] + userInput[j].getVariation()[i] + " ";
+
+                            //if first word, make capitals
+                            if (j == 0) aliases[i] = aliases[i].Trim().ToUpper() + ",";
+                        }
                     }
-                    else
+                    
+                }
+
+                //create native alias
+                for (int i = 0; i < userInput.Length; i++)
+                {
+                    if (userInput[i]!=null)
                     {
-                        english = transliterateWord(separated[i], false);
-                        englishResult = englishResult + FirstCharToUpper(english.ToLower()) + " ";
-                        nativeResult = nativeResult + FirstCharToUpper(separated[i].ToLower()) + " ";
+                        nativeResult = nativeResult + FirstCharToUpper(userInput[i].getNative().ToLower()) + " ";
+                        if (i == 0) nativeResult = nativeResult.Trim().ToUpper() + ",";
                     }
-                }//End of for: Transliterate each string value of input individually
+                }
+
+                //unite aliases
+                for (int i = 0; i < aliases.Length; i++)
+                {
+                    englishResult = englishResult + aliases[i] + Environment.NewLine;
+                }
+                //final output
                 resultTotal = nativeResult + Environment.NewLine + englishResult;
             }
 
@@ -222,7 +266,7 @@ namespace CIS_Alias_generator
                             // if abbreviation was behind name, put it upfront and add 1st word
                             if (abbreviationBehind)
                             {
-                                addToCompanyName(separated[i], noAbbreviation, row);
+                                addToCompanyName(separated[i], noAbbreviation, row, i);
                             }
                         }
 
@@ -232,7 +276,7 @@ namespace CIS_Alias_generator
                             companyAliases[0] = "";
                             companyAliases[1] = "";
                             noAbbreviation = true;
-                            addToCompanyName(separated[i], noAbbreviation, row);  
+                            addToCompanyName(separated[i], noAbbreviation, row, i);  
                         }
                     } //end of (if 1st element of input)
 
@@ -243,7 +287,7 @@ namespace CIS_Alias_generator
 
                         else
                         {
-                            addToCompanyName(separated[i], noAbbreviation, row);
+                            addToCompanyName(separated[i], noAbbreviation, row, i);
                         }
                     }
                 } //End of for: Transliterate each string value of input individually
@@ -262,8 +306,181 @@ namespace CIS_Alias_generator
             return resultTotal;
         }
 
+        //get the biggest variations count
+        private int countVariations()
+        {
+            int maxVariations = 0;
+
+            for (int i = 0; i < userInput.Length; i++)
+            {
+                if (userInput[i] != null)
+                {
+                    string[] allVar = userInput[i].getVariation();
+                    int variations = 0;
+                    for (int j = 0; j < allVar.Length; j++)
+                    {
+                        if (allVar[j] != null) variations++;
+                    }
+                    if (variations > maxVariations) maxVariations = variations;
+                }
+            }
+            return maxVariations;
+        }
+
+       /* 
+        * translate single word
+        */
+        private string[] AltTransliterateWord(string input, int exceptionCount, int maxException)
+        {
+            input = input.ToLower();
+            string word;
+            /* 
+             * separates string input into character array
+             */
+            char[] separated = input.ToCharArray();
+
+            // transliterated final word
+            string[] result = new string[50];
+
+            // temporary variable to hold currently viewed character
+            char current;
+
+            // temporary variable to hold special symbol, to which special rules will apply (from object)
+            char specialSymbol;
+
+            // temporary variable to hold special symbol replacement (from object)
+            string[] replacement;
+
+            //if special symbol (for the rule handling)
+            bool special = false;
+
+            // temporary variable to hold english transliteration
+            string english = "";
+
+            int replacementCount = 1;
+            int variation = 0;
+            int exceptionNr = 0;
+            int specialNr = 0;
+            int count = 0;
+
+            for (int x = 0; x < maxException; x++)
+            {
+                exceptionNr = x;
+                for (int i = 0; i < exceptionCount; i++)
+                {
+                    for (variation = 0; variation < replacementCount; variation++)
+                    {
+                        word = "";
+                        specialNr = 0;
+                        //loop through each character of a word
+                        for (int y = 0; y < separated.Length; y++)
+                        {
+                            //select current character
+                            current = separated[y];
+
+                            //TODO: apply dynamic rule handling
+                            if (rules[0] != null)
+                            {
+                                bool exceptionFound = false;
+                                for (int j = 0; j < rules.Length; j++)
+                                {
+                                    if (rules[j] != null)
+                                    {
+                                        specialSymbol = rules[j].getSymbol().ToCharArray()[0];
+
+                                        //apply rule handling on character
+                                        if (special & current == specialSymbol || (y == 0 && indicators.Contains(" ") & current == specialSymbol))
+                                        {
+                                            if (specialNr==exceptionNr || count ==0 )
+                                            {
+                                                replacement = rules[j].getReplacement();
+                                                replacementCount = replacement.Length;
+
+                                                //TODO: multiple variations for exceptions
+                                                english = replacement[variation];
+                                                if (y == 0)
+                                                {
+                                                    english = FirstCharToUpper(english);
+                                                }
+                                                exceptionFound = true;
+
+                                                specialNr++;
+                                                break;
+                                            }
+                                            specialNr++;
+                                        }
+                                    }
+                                }
+
+                                if (!exceptionFound)
+                                {
+                                    english = findCharTransliteration(current, y);
+                                }
+                            }
+
+                            // if special rules doesn't apply for character
+                            else
+                            {
+                                english = findCharTransliteration(current, y);
+                            }
+
+                            //check if current character is an indicator of special rule
+                            special = checkSpecial(current);
+
+                            //add transliteration to result
+                            word = word + english;
+                        }//end of loop through each character of a word
+                        if (!result.Contains(word))
+                        {
+                            result[count] = word;
+                            count++;
+                        }
+                    }//end of variation loop
+                } //end max exception loop
+            }//end max exception count loop
+
+            //return words
+            return result;
+        }
+
+        private string[] simpleTranslit(string input, int length)
+        {
+            if (length==0)
+            {
+                length = 1;
+            }
+            // transliterated final word
+            string[] result = new string[length];
+
+            /* 
+            * separates string input into character array
+            */
+            char[] separated = input.ToCharArray();
+
+            // temporary variable to hold currently viewed character
+            char current;
+
+            // temporary variable to hold english transliteration
+            string english = "";
+
+
+            //loop through each character of a word
+            for (int i = 0; i < separated.Length; i++)
+            {
+                //select current character
+                current = separated[i];
+
+                english = findCharTransliteration(current, i);
+
+                //add transliteration to result
+                result[0] = result[0] + english;
+            }
+
+            return result;
+        }
+
         //translate company name
-        private void addToCompanyName(string text, bool noAbbreviation, int row)
+        private void addToCompanyName(string text, bool noAbbreviation, int row, int wordNr)
         {
             //check if alias contains native symbols
             bool isNative = false;
@@ -275,7 +492,7 @@ namespace CIS_Alias_generator
             if(noAbbreviation)
             {
                 companyAliases[0] = companyAliases[0] + text.ToUpper() + " ";
-                companyAliases[1] = companyAliases[1] + transliterateWord(text, true) + " ";
+                companyAliases[1] = companyAliases[1] + transliterateWord(text, true, wordNr, 0) + " ";
             }
 
             //if abbreviation found
@@ -310,7 +527,7 @@ namespace CIS_Alias_generator
                         //if no native symbols found - transliterate
                         else
                         {
-                            companyAliases[j] = companyAliases[j] + transliterateWord(text, true) + " ";
+                            companyAliases[j] = companyAliases[j] + transliterateWord(text, true, wordNr, 0) + " ";
                         }
                     }
                 }//end of loop through each alias
@@ -320,7 +537,7 @@ namespace CIS_Alias_generator
         /* 
         * translate single word
         */
-        private string transliterateWord(string input, bool capitals)
+        private string transliterateWord(string input, bool capitals, int wordNr, int exceptionNr)
         {
             // transliterated final word
             string result = "";
@@ -333,20 +550,18 @@ namespace CIS_Alias_generator
             // temporary variable to hold currently viewed character
             char current;
 
-            // temporary variable to hold original character (from object)
-            char original = ' ';
-
             // temporary variable to hold special symbol, to which special rules will apply (from object)
             char specialSymbol;
 
             // temporary variable to hold special symbol replacement (from object)
-            string replacement= "";
+            string[] replacement;
 
             //if special symbol (for the rule handling)
             bool special = false;
 
             // temporary variable to hold english transliteration
             string english = "";
+
 
             //loop through each character of a word
             for (int i = 0; i < separated.Length; i++)
@@ -363,12 +578,13 @@ namespace CIS_Alias_generator
                         if (rules[j] != null)
                         {
                             specialSymbol = rules[j].getSymbol().ToCharArray()[0];
-                            replacement = rules[j].getReplacement();
-
+                            
                             //apply rule handling on character
                             if (special & current == specialSymbol || (i == 0 && indicators.Contains(" ") & current == specialSymbol))
                             {
-                                english = replacement;
+                                replacement = rules[j].getReplacement();
+                               //TODO: multiple variations for exceptions
+                                english = replacement[exceptionNr];
                                 if (i == 0)
                                 {
                                     english = FirstCharToUpper(english);
@@ -404,6 +620,62 @@ namespace CIS_Alias_generator
 
             //return word
             return result;
+        }
+
+        private int countExceptions(string input)
+        {
+            //count of exceptions in a word
+            int exceptionCount = 0;
+
+            /* 
+             * separates string input into character array
+             */
+            char[] separated = input.ToCharArray();
+
+            // temporary variable to hold currently viewed character
+            char current;
+
+            // temporary variable to hold special symbol, to which special rules will apply (from object)
+            char specialSymbol;
+
+            // temporary variable to hold special symbol replacement (from object)
+            string[] replacement;
+
+            //if special symbol (for the rule handling)
+            bool special = false;
+
+            //loop through each character of a word
+            for (int i = 0; i < separated.Length; i++)
+            {
+                //select current character
+                current = separated[i];
+
+                //TODO: apply dynamic rule handling
+                if (rules[0] != null)
+                {
+                    for (int j = 0; j < rules.Length; j++)
+                    {
+                        if (rules[j] != null)
+                        {
+                            specialSymbol = rules[j].getSymbol().ToCharArray()[0];
+
+                            //apply rule handling on character
+                            if (special & current == specialSymbol || (i == 0 && indicators.Contains(" ") & current == specialSymbol))
+                            {
+                                replacement = rules[j].getReplacement();
+
+                                for (int x = 0; x < replacement.Length; x++)
+                                {
+                                    exceptionCount++;
+                                }
+                            }
+                        }
+                    }
+                }
+                //check if current character is an indicator of special rule
+                special = checkSpecial(current);
+            }
+            return exceptionCount;
         }
 
         private string findCharTransliteration(char current, int i)

@@ -12,9 +12,9 @@ namespace CIS_Alias_generator
         private string condition;
         private string indicators;
         private string symbol;
-        private string replacement;
+        private string[] replacement;
 
-        public ExceptionRules(string condition, string indicators, string symbol, string replacement)
+        public ExceptionRules(string condition, string indicators, string symbol, string[] replacement)
         {
             this.condition = condition;
             this.indicators = indicators;
@@ -30,7 +30,7 @@ namespace CIS_Alias_generator
         {
             return symbol;
         }
-        public string getReplacement()
+        public string[] getReplacement()
         {
             return replacement;
         }
